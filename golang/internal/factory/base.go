@@ -113,3 +113,24 @@ func (b *BaseMiddleware) StopConsuming() error {
 	return nil
 }
 
+func (b *BaseMiddleware) Close() error {
+	b.StopConsuming()
+
+	var err error
+	if b.ch != nil && !b.ch.IsClosed() {
+		err = b.ch.Close()
+	}
+	
+	if b.conn != nil && !b.conn.IsClosed() {
+		closeErr := b.conn.Close()
+		if closeErr != nil {
+			err = closeErr
+		}
+	}
+	
+	if err != nil {
+		return m.ErrMessageMiddlewareClose
+	}
+
+	return nil
+}
