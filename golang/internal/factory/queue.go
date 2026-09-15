@@ -12,3 +12,7 @@ type QueueMiddleware struct {
 	queueName string
 }
 
+func (q *QueueMiddleware) StartConsuming(callbackFunc func(msg m.Message, ack func(), nack func())) error {
+	return q.BaseMiddleware.StartConsumingQueue(q.queueName, callbackFunc)
+}
+
