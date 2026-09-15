@@ -57,10 +57,10 @@ func (b *BaseMiddleware) StartConsumingQueue(queueName string, callbackFunc func
 	msgs, err := b.ch.Consume(
 		queueName,
 		b.consumerTag, // consumer
-		false,         // auto-ack
-		false,         // exclusive
-		false,         // no-local
-		false,         // no-wait
+		ManualAck,     // auto-ack
+		Shared,        // exclusive
+		Local,         // no-local
+		Wait,          // no-wait
 		nil,           // args
 	)
 	
@@ -80,8 +80,8 @@ func (b *BaseMiddleware) StartConsumingQueue(queueName string, callbackFunc func
 			msg := m.Message{Body: string(d.Body)}
 			
 			delivery := d
-			ack := func() { delivery.Ack(false) }
-			nack := func() { delivery.Nack(false, true) }
+			ack := func() { delivery.Ack(SingleAck) }
+			nack := func() { delivery.Nack(SingleAck, Requeue) }
 			
 			callbackFunc(msg, ack, nack)
 		}
@@ -102,7 +102,7 @@ func (b *BaseMiddleware) StopConsuming() error {
 		return nil
 	}
 
-	err := b.ch.Cancel(b.consumerTag, false)
+	err := b.ch.Cancel(b.consumerTag, Wait)
 	if err != nil {
 		if b.conn.IsClosed() {
 			return m.ErrMessageMiddlewareDisconnected
@@ -142,10 +142,10 @@ func (b *BaseMiddleware) PublishWithTimeout(exchange, routingKey string, msg m.M
 
 	err := b.ch.PublishWithContext(
 		ctx,
-		exchange,   // exchange
-		routingKey, // routing key
-		false,      // mandatory
-		false,      // immediate
+		exchange,     // exchange
+		routingKey,   // routing key
+		NonMandatory, // mandatory
+		NonImmediate, // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(msg.Body),
