@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -130,6 +131,31 @@ func (b *BaseMiddleware) Close() error {
 	
 	if err != nil {
 		return m.ErrMessageMiddlewareClose
+	}
+
+	return nil
+}
+
+func (b *BaseMiddleware) PublishWithTimeout(exchange, routingKey string, msg m.Message, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := b.ch.PublishWithContext(
+		ctx,
+		exchange,   // exchange
+		routingKey, // routing key
+		false,      // mandatory
+		false,      // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(msg.Body),
+		},
+	)
+	if err != nil {
+		if b.conn.IsClosed() {
+			return m.ErrMessageMiddlewareDisconnected
+		}
+		return m.ErrMessageMiddlewareMessage
 	}
 
 	return nil
