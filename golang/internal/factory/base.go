@@ -17,3 +17,22 @@ type BaseMiddleware struct {
 	consumerTag  string
 }
 
+func NewBaseMiddleware(settings m.ConnSettings) (*BaseMiddleware, error) {
+	url := fmt.Sprintf("amqp://guest:guest@%s:%d/", settings.Hostname, settings.Port)
+	conn, err := amqp.Dial(url)
+	if err != nil {
+		return nil, m.ErrMessageMiddlewareDisconnected
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		conn.Close()
+		return nil, m.ErrMessageMiddlewareDisconnected
+	}
+
+	return &BaseMiddleware{
+		conn: conn,
+		ch:   ch,
+	}, nil
+}
+
