@@ -51,12 +51,12 @@ func CreateExchangeMiddleware(exchange string, keys []string, connectionSettings
 
 	err = base.ch.ExchangeDeclare(
 		exchange,
-		"topic",     // type
-		Transient,   // durable
-		Keep,        // auto-deleted
-		NonInternal, // internal
-		Wait,        // no-wait
-		nil,         // arguments
+		TopicExchange,  // type
+		Transient,      // durable
+		Keep,           // auto-deleted
+		NonInternal,    // internal
+		Wait,           // no-wait
+		nil,            // arguments
 	)
 	if err != nil {
 		return nil, m.ErrMessageMiddlewareDisconnected

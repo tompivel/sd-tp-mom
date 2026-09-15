@@ -2,7 +2,8 @@ package factory
 
 const (
 	DefaultExchange = ""
-
+	TopicExchange   = "topic"
+	
 	Durable      = true
 	Transient    = false
 	AutoDelete   = true
