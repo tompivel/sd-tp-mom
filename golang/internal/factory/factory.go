@@ -30,5 +30,56 @@ func CreateQueueMiddleware(queueName string, connectionSettings m.ConnSettings) 
 }
 
 func CreateExchangeMiddleware(exchange string, keys []string, connectionSettings m.ConnSettings) (m.Middleware, error) {
-	return nil, nil
+	base, err := NewBaseMiddleware(connectionSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	err = base.ch.ExchangeDeclare(
+		exchange,
+		"topic", // type
+		false,   // durable
+		false,   // auto-deleted
+		false,   // internal
+		false,   // no-wait
+		nil,     // arguments
+	)
+	if err != nil {
+		base.Close()
+		return nil, m.ErrMessageMiddlewareDisconnected
+	}
+
+	q, err := base.ch.QueueDeclare(
+		"",    // auto-generated
+		false, // durable
+		true,  // auto-delete
+		true,  // exclusive
+		false, // no-wait
+		nil,   // arguments
+	)
+	if err != nil {
+		base.Close()
+		return nil, m.ErrMessageMiddlewareDisconnected
+	}
+
+	for _, key := range keys {
+		err = base.ch.QueueBind(
+			q.Name,
+			key,
+			exchange,
+			false,
+			nil,
+		)
+		if err != nil {
+			base.Close()
+			return nil, m.ErrMessageMiddlewareDisconnected
+		}
+	}
+
+	return &ExchangeMiddleware{
+		BaseMiddleware: base,
+		exchangeName:   exchange,
+		routingKeys:    keys,
+		queueName:      q.Name,
+	}, nil
 }
