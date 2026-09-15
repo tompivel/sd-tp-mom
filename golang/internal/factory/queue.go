@@ -20,6 +20,5 @@ func (q *QueueMiddleware) Send(msg m.Message) error {
 		return m.ErrMessageMiddlewareDisconnected
 	}
 
-	//TODO: Persistent messages?
 	return q.BaseMiddleware.PublishWithTimeout(DefaultExchange, q.queueName, msg, 5*time.Second)
 }

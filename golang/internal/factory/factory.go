@@ -19,11 +19,11 @@ func CreateQueueMiddleware(queueName string, connectionSettings m.ConnSettings) 
 
 	_, err = base.ch.QueueDeclare(
 		queueName,
-		false, // durable
-		false, // delete when unused
-		false, // exclusive
-		false, // no-wait
-		nil,   // arguments
+		Transient, // durable
+		Keep,      // delete when unused
+		Shared,    // exclusive
+		Wait,      // no-wait
+		nil,       // arguments
 	)
 	if err != nil {
 		return nil, m.ErrMessageMiddlewareDisconnected
@@ -51,24 +51,24 @@ func CreateExchangeMiddleware(exchange string, keys []string, connectionSettings
 
 	err = base.ch.ExchangeDeclare(
 		exchange,
-		"topic", // type
-		false,   // durable
-		false,   // auto-deleted
-		false,   // internal
-		false,   // no-wait
-		nil,     // arguments
+		"topic",     // type
+		Transient,   // durable
+		Keep,        // auto-deleted
+		NonInternal, // internal
+		Wait,        // no-wait
+		nil,         // arguments
 	)
 	if err != nil {
 		return nil, m.ErrMessageMiddlewareDisconnected
 	}
 
 	q, err := base.ch.QueueDeclare(
-		"",    // auto-generated
-		false, // durable
-		true,  // auto-delete
-		true,  // exclusive
-		false, // no-wait
-		nil,   // arguments
+		"",          // auto-generated
+		Transient,   // durable
+		AutoDelete,  // auto-delete
+		Exclusive,   // exclusive
+		Wait,        // no-wait
+		nil,         // arguments
 	)
 	if err != nil {
 		return nil, m.ErrMessageMiddlewareDisconnected
@@ -79,7 +79,7 @@ func CreateExchangeMiddleware(exchange string, keys []string, connectionSettings
 			q.Name,
 			key,
 			exchange,
-			false,
+			Wait, // no-wait
 			nil,
 		)
 		if err != nil {
