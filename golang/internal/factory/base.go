@@ -89,3 +89,27 @@ func (b *BaseMiddleware) StartConsumingQueue(queueName string, callbackFunc func
 	return nil
 }
 
+func (b *BaseMiddleware) StopConsuming() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.conn.IsClosed() {
+		return m.ErrMessageMiddlewareDisconnected
+	}
+
+	if !b.isConsuming {
+		return nil
+	}
+
+	err := b.ch.Cancel(b.consumerTag, false)
+	if err != nil {
+		if b.conn.IsClosed() {
+			return m.ErrMessageMiddlewareDisconnected
+		}
+		return m.ErrMessageMiddlewareClose
+	}
+
+	b.isConsuming = false
+	return nil
+}
+
