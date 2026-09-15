@@ -14,3 +14,7 @@ type ExchangeMiddleware struct {
 	queueName    string
 }
 
+func (e *ExchangeMiddleware) StartConsuming(callbackFunc func(msg m.Message, ack func(), nack func())) error {
+	return e.BaseMiddleware.StartConsumingQueue(e.queueName, callbackFunc)
+}
+
