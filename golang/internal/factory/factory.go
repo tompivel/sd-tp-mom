@@ -10,6 +10,13 @@ func CreateQueueMiddleware(queueName string, connectionSettings m.ConnSettings) 
 		return nil, err
 	}
 
+	success := false
+	defer func() {
+		if !success {
+			base.Close()
+		}
+	}()
+
 	_, err = base.ch.QueueDeclare(
 		queueName,
 		false, // durable
@@ -19,10 +26,10 @@ func CreateQueueMiddleware(queueName string, connectionSettings m.ConnSettings) 
 		nil,   // arguments
 	)
 	if err != nil {
-		base.Close()
 		return nil, m.ErrMessageMiddlewareDisconnected
 	}
 
+	success = true
 	return &QueueMiddleware{
 		BaseMiddleware: base,
 		queueName:      queueName,
@@ -35,6 +42,13 @@ func CreateExchangeMiddleware(exchange string, keys []string, connectionSettings
 		return nil, err
 	}
 
+	success := false
+	defer func() {
+		if !success {
+			base.Close()
+		}
+	}()
+
 	err = base.ch.ExchangeDeclare(
 		exchange,
 		"topic", // type
@@ -45,7 +59,6 @@ func CreateExchangeMiddleware(exchange string, keys []string, connectionSettings
 		nil,     // arguments
 	)
 	if err != nil {
-		base.Close()
 		return nil, m.ErrMessageMiddlewareDisconnected
 	}
 
@@ -58,7 +71,6 @@ func CreateExchangeMiddleware(exchange string, keys []string, connectionSettings
 		nil,   // arguments
 	)
 	if err != nil {
-		base.Close()
 		return nil, m.ErrMessageMiddlewareDisconnected
 	}
 
@@ -71,11 +83,11 @@ func CreateExchangeMiddleware(exchange string, keys []string, connectionSettings
 			nil,
 		)
 		if err != nil {
-			base.Close()
 			return nil, m.ErrMessageMiddlewareDisconnected
 		}
 	}
 
+	success = true
 	return &ExchangeMiddleware{
 		BaseMiddleware: base,
 		exchangeName:   exchange,
