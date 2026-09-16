@@ -18,6 +18,11 @@ Se extrajeron todos los parámetros booleanos ("magic variables") utilizados por
 ## 4. Multicasting de Mensajes
 Para el `ExchangeMiddleware`, si se instancian múltiples `routingKeys` (tópicos) en su creación, la operación de envío (`Send`) itera publicando el mensaje de manera independiente para cada tópico registrado. Esto abstrae la complejidad y garantiza que el productor envíe su mensaje a todos los destinos esperados.
 
+
+## 5. Serialización del Estado del Middleware (Uso de Mutex)
+
+En `base.go`, el campo booleano `isConsuming` determina si un middleware ya se encuentra activo consumiendo mensajes. Para evitar condiciones de carrera graves (por ejemplo, si un cliente llamase a `StartConsuming` o `StopConsuming` simultáneamente desde múltiples goroutines), el acceso a esta variable de estado y la generación del `consumerTag` están estrictamente protegidos mediante un `sync.Mutex`. Esto serializa el acceso al estado vital del middleware garantizando transiciones de inicio/apagado completamente seguras y atómicas.
+
 ---
 
 # Arquitectura de Módulos
@@ -164,3 +169,34 @@ sequenceDiagram
         Base->>Client: callback(msg, ack, nack)
     end
 ```
+
+---
+
+# Justificación de Parámetros de Inicialización AMQP
+
+Para lograr el comportamiento deseado de los MOM requeridos, se utilizaron las siguientes configuraciones con RabbitMQ:
+
+### Consumo en `BaseMiddleware` (StartConsumingQueue)
+
+- **`ManualAck`** (param: *autoAck = false*): Delega la confirmación de los mensajes al usuario mediante los callbacks `ack/nack`. Evita la pérdida silenciosa de mensajes si falla el procesamiento cliente.
+- **`Shared`** (param: *exclusive = false*): Permite múltiples consumidores de una misma cola.
+- **`Local`** (param: *noLocal = false*): Permite que un cliente reciba mensajes originados por su propia conexión.
+- **`Wait`** (param: *noWait = false*): Sincroniza la operación. Es decir, el cliente espera la confirmación del broker antes de arrancar.
+
+### Declaraciones en `QueueMiddleware`
+
+- **`QueueDeclare`**:
+  - **`Transient`** (param: *durable = false*): Las colas residen en RAM y se pierden ante un reinicio del broker. Suficiente porque las pruebas asumen un ambiente efímero (sin caídas del broker simuladas).
+  - **`Keep`** (param: *autoDelete = false*): Evita que la cola desaparezca al irse los consumidores. Fundamental para que productores publiquen aunque no haya nadie conectado.
+  - **`Shared`** (param: *exclusive = false*): Necesario para que otros componentes se acoplen a la cola genérica.
+
+### Declaraciones en `ExchangeMiddleware`
+
+- **`ExchangeDeclare`**:
+  - **`kind: "topic"`**: Usado para flexibilizar la difusión y permitir filtrado selectivo según los tópicos (`routingKeys`) declarados.
+  - **`Transient` y `Keep`**: Idéntico accionar que las colas fijas, asegurando longevidad temporal sin I/O en disco.
+  - **`NonInternal`** (param: *internal = false*): Habilita la publicación directa de parte de los clientes.
+- **`QueueDeclare` (Cola Temporal)**:
+  - **`name: ""`**: Genera un nombre unívoco gestionado directamente por RabbitMQ.
+  - **`AutoDelete`** (param: *autoDelete = true*): Provoca que esta cola intermedia (binding del exchange) se purgue por completo en el momento que el middleware local invoque a `Close()`.
+  - **`Exclusive`** (param: *exclusive = true*): Cierra el acceso externo, dado que la cola es solo un punto puente para este consumidor individual desde el exchange general.
