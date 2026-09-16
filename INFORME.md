@@ -16,12 +16,15 @@ A su vez, cualquier error de la librería subyacente AMQP se mapea de manera cen
 Se extrajeron todos los parámetros booleanos ("magic variables") utilizados por las configuraciones AMQP hacia constantes descriptivas compartidas (ej. `Transient`, `AutoDelete`, `Wait`, `Exclusive`). Esto con el fin de aportar más legibilidad a las definiciones de topologías.
 
 ## 4. Multicasting de Mensajes
+
 Para el `ExchangeMiddleware`, si se instancian múltiples `routingKeys` (tópicos) en su creación, la operación de envío (`Send`) itera publicando el mensaje de manera independiente para cada tópico registrado. Esto abstrae la complejidad y garantiza que el productor envíe su mensaje a todos los destinos esperados.
 
 
-## 5. Serialización del Estado del Middleware (Uso de Mutex)
+## 5. Atomicidad del Estado del Middleware (Uso de Mutex)
 
-En `base.go`, el campo booleano `isConsuming` determina si un middleware ya se encuentra activo consumiendo mensajes. Para evitar condiciones de carrera graves (por ejemplo, si un cliente llamase a `StartConsuming` o `StopConsuming` simultáneamente desde múltiples goroutines), el acceso a esta variable de estado y la generación del `consumerTag` están estrictamente protegidos mediante un `sync.Mutex`. Esto serializa el acceso al estado vital del middleware garantizando transiciones de inicio/apagado completamente seguras y atómicas.
+En `base.go`, el campo booleano `isConsuming` determina si **esa instancia particular en memoria (el objeto Go)** ya se encuentra consumiendo mensajes. El `sync.Mutex` protege exclusivamente el estado interno de este objeto aislando la generación de su `consumerTag`. Esto evita condiciones de carrera severas si se invoca `StartConsuming` o `StopConsuming` simultáneamente sobre la *misma* instancia (lo que causaría conexiones perdidas o *goroutines zombies* consumiendo en secreto).
+
+Este lock **no** bloquea a otros consumidores ni restringe la concurrencia sobre la cola física en RabbitMQ. Si se desea escalar la recepción de mensajes y procesarlos en paralelo, se podrían instanciar múltiples objetos `QueueMiddleware` apuntando a la misma cola.
 
 ---
 
